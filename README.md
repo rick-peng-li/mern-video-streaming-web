@@ -276,7 +276,7 @@ REACT_APP_VIDEO_SERVER=http://localhost:4001   # HLS 视频服务地址
 #### 1. 克隆项目
 
 ```bash
-git clone https://github.com/foyzulkarim/mern-video-streaming.git
+git clone https://github.com/rick-peng-li/mern-video-streaming-web.git
 cd mern-video-streaming-web
 ```
 

@@ -12,8 +12,8 @@ VideoList.propTypes = {
 export default function VideoList({ videos = [], ...other }) {
   return (
     <Grid container spacing={3} {...other}>
-      {videos.map((video) => (
-        <Grid key={video.id} item xs={12} sm={6} md={3}>
+      {videos.map((video, i) => (
+        <Grid key={video._id || video.id || `video-${i}`} item xs={12} sm={6} md={3}>
           <VideoCard video={video} />
         </Grid>
       ))}

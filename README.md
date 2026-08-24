@@ -1,6 +1,6 @@
 # MERN 视频流媒体平台
 
-> 项目地址：[https://github.com/foyzulkarim/mern-video-streaming.git](https://github.com/foyzulkarim/mern-video-streaming.git)
+> 项目地址：[https://github.com/rick-peng-li/mern-video-streaming-web.git](https://github.com/rick-peng-li/mern-video-streaming-web.git)
 
 ## 项目简介
 

@@ -1,17 +1,40 @@
 /** execute function will take a filePath and run  ffmpeg command to convert it to mp4 */
 const ffmpeg = require('fluent-ffmpeg');
-
-const configureFFMPEG = async () => {  
-  ffmpeg.setFfmpegPath(`/usr/bin/ffmpeg`);
-  ffmpeg.setFfprobePath(`/usr/bin/ffprobe`);
-};
-
-configureFFMPEG();
-
+const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const { VIDEO_QUEUE_EVENTS: QUEUE_EVENTS } = require('./constants');
 const { addQueueItem } = require('./queue');
 const logger = require('../../logger');
+
+const findExecutable = (name) => {
+  if (process.env[`FFMPEG_${name.toUpperCase()}_PATH`]) {
+    return process.env[`FFMPEG_${name.toUpperCase()}_PATH`];
+  }
+  const candidates = [
+    `/usr/bin/${name}`,
+    `/usr/local/bin/${name}`,
+    `/opt/homebrew/bin/${name}`,
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  try {
+    return execSync(`which ${name}`, { encoding: 'utf8' }).trim();
+  } catch (_) {
+    return null;
+  }
+};
+
+const configureFFMPEG = async () => {
+  const ffmpegPath = findExecutable('ffmpeg') || '/usr/bin/ffmpeg';
+  const ffprobePath = findExecutable('ffprobe') || '/usr/bin/ffprobe';
+  ffmpeg.setFfmpegPath(ffmpegPath);
+  ffmpeg.setFfprobePath(ffprobePath);
+  logger.info('Configured FFmpeg executables', { ffmpegPath, ffprobePath });
+};
+
+configureFFMPEG();
 
 const processRawFileToMp4 = async (filePath, outputFolder, jobData) => {
   const fileExt = path.extname(filePath);

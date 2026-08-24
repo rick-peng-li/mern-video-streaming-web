@@ -106,13 +106,14 @@ const setupRoutes = (app) => {
 
   // upload videos handler using multer package routes below.
 
-  const storage = multer.diskStorage({
+  const diskStorage = multer.diskStorage({
     destination: function (req, file, cb) {
       cb(null, 'uploads/videos');
     },
     filename: function (req, file, cb) {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, file.fieldname + '-' + uniqueSuffix);
+      const ext = file.originalname.split('.').pop() || 'mp4';
+      cb(null, file.fieldname + '-' + uniqueSuffix + '.' + ext);
     },
   });
 
@@ -126,35 +127,39 @@ const setupRoutes = (app) => {
     }
   };
 
-  const s3Client = new S3Client({
-    endpoint: process.env.ENDPOINT, // Find your endpoint in the control panel, under Settings. Prepend "https://".
-    forcePathStyle: false, // Configures to use subdomain/virtual calling format.
-    region: process.env.REGION, // Must be "us-east-1" when creating new Spaces. Otherwise, use the region in your endpoint (e.g. nyc3).
-    credentials: {
-      accessKeyId: process.env.ACCESS_KEY, // Access key pair. You can create access key pairs using the control panel or API.
-      secretAccessKey: process.env.ACCESS_TOKEN, // Secret access key defined through an environment variable.
-    },
-  });
+  const useS3 = Boolean(
+    process.env.BUCKET_NAME &&
+    process.env.ENDPOINT &&
+    process.env.ACCESS_KEY &&
+    process.env.ACCESS_TOKEN
+  );
 
-  const s3Storage = multerS3({
-    s3: s3Client, // s3 instance
-    bucket: process.env.BUCKET_NAME, // change it as per your project requirement
-    acl: 'private', // storage access type
-    // metadata: (req, file, cb) => {
-    //   cb(null, { fieldname: file.fieldname });
-    // },
-    // key: (req, file, cb) => {
-    //   const fileName =
-    //     Date.now() + '_' + file.fieldname + '_' + file.originalname;
-    //   cb(null, fileName);
-    // },
-  });
+  let activeStorage;
+  if (useS3) {
+    const s3Client = new S3Client({
+      endpoint: process.env.ENDPOINT,
+      forcePathStyle: false,
+      region: process.env.REGION,
+      credentials: {
+        accessKeyId: process.env.ACCESS_KEY,
+        secretAccessKey: process.env.ACCESS_TOKEN,
+      },
+    });
+    activeStorage = multerS3({
+      s3: s3Client,
+      bucket: process.env.BUCKET_NAME,
+      acl: 'private',
+    });
+    logger.info('Using S3 storage for video uploads', { bucket: process.env.BUCKET_NAME });
+  } else {
+    activeStorage = diskStorage;
+    logger.info('S3 not configured, using local disk storage for video uploads (uploads/videos/)');
+  }
 
   const upload = multer({
-    // dest: 'uploads/videos',
     fileFilter: fileFilter,
     limits: { fileSize: 50000000 },
-    storage: s3Storage,
+    storage: activeStorage,
   }).single('video');
 
   const uploadProcessor = (req, res, next) => {
@@ -173,34 +178,41 @@ const setupRoutes = (app) => {
 
   app.post(`${BASE_URL}/upload`, uploadProcessor, async (req, res) => {
     try {
-      // const { videoDuration } = await getVideoDurationAndResolution(
-      //   `./${req.file.path}`
-      // );
-      // console.log('videoDuration', videoDuration);
+      if (!req.file) {
+        return res.status(400).json({ status: 'error', message: 'Video file is required' });
+      }
+      const serverUrl = process.env.SERVER_URL || 'http://localhost:4000';
+      const videoServer = process.env.VIDEO_SERVER || serverUrl.replace(/:\d+$/, ':4001');
+      const videoFileName = req.file.filename
+        || (req.file.key && useS3 ? req.file.key.split('/').pop() : null)
+        || req.file.originalname;
+      const videoLink = useS3
+        ? req.file.location
+        : `${videoServer}/${videoFileName.replace(/\.[^.]+$/, '.m3u8')}`;
 
       const dbPayload = {
         ...req.body,
-        fileName: req.file.originalname,
+        fileName: videoFileName,
         originalName: req.file.originalname,
         recordingDate: new Date(),
-        videoLink: req.file.location,
+        videoLink,
         viewCount: 0,
         duration: 0,
-        status: VIDEO_STATUS.PUBLISHED
+        status: VIDEO_STATUS.PENDING,
+        processedPath: req.file.path,
       };
       logger.info('dbPayload', { dbPayload });
-      // TODO: save the file info and get the id from the database
       const result = await insert(dbPayload);
       logger.info('result', result);
-      // await addQueueItem(QUEUE_EVENTS.VIDEO_UPLOADED, {
-      //   id: result.insertedId.toString(),
-      //   ...req.body,
-      //   ...req.file,
-      // });
+      await addQueueItem(QUEUE_EVENTS.VIDEO_UPLOADED, {
+        id: result.insertedId.toString(),
+        filePath: req.file.path,
+        fileName: videoFileName,
+        ...req.body,
+      });
       res.status(200).json({
         status: 'success',
-        message: 'Upload success',
-        ...req.file,
+        message: 'Upload success, processing video...',
         ...result,
       });
       return;

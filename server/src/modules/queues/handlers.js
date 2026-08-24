@@ -12,9 +12,10 @@ const logger = require('../../logger');
 const eventEmitter = require('../../event-manager').getInstance();
 
 const uploadedHandler = async (job) => {
-  logger.info('uploaded handler!', job.data.title);
+  logger.info('uploaded handler!', { id: job.data.id, title: job.data.title });
   await addQueueItem(QUEUE_EVENTS.VIDEO_PROCESSING, {
     ...job.data,
+    path: job.data.filePath || job.data.path,
     completed: true,
   });
   return;

@@ -4,7 +4,6 @@ import { Box, Card, Stack, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
 import { Link } from "react-router-dom";
-import Moment from 'react-moment';
 
 // utils
 // components
@@ -19,6 +18,24 @@ const StyledProductImg = styled('img')({
   objectFit: 'cover',
   position: 'absolute',
 });
+
+const pad = (n) => String(n).padStart(2, '0');
+
+const formatDate = (value) => {
+  if (!value) return '-';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '-';
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+const formatDuration = (seconds) => {
+  const total = Number(seconds) || 0;
+  const abs = Math.max(0, Math.floor(total));
+  const h = Math.floor(abs / 3600);
+  const m = Math.floor((abs % 3600) / 60);
+  const s = abs % 60;
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+};
 
 // ----------------------------------------------------------------------
 
@@ -35,13 +52,11 @@ export default function VideoCard({ video }) {
     status,
     recordingDate,
     _id: id,
-  } = video;
+  } = video || {};
 
   const onClickHandler = () => {
     console.log('clicked', video);
   };
-
-  const videoDuration = duration ?? 0;
 
   return (
     <Card onClick={onClickHandler}>
@@ -61,25 +76,25 @@ export default function VideoCard({ video }) {
             {status}
           </Label>
         )}
-        <StyledProductImg alt={name} src={cover} />
+        <StyledProductImg alt={name || ''} src={cover || ''} />
       </Box>
 
       <Stack spacing={2} sx={{ p: 3 }}>
         <Stack direction='row' alignItems='center' justifyContent='space-between'>
-            <Link to={id} color='inherit' underline='hover'>
+            <Link to={id || '#'} color='inherit' underline='hover'>
               <Typography variant='subtitle2' noWrap>
-                {name}
+                {name || '-'}
               </Typography>
             </Link>
             <Typography variant='subtitle1'>
-                <Moment format='DD/MM/yyyy'>{recordingDate}</Moment>
+              {formatDate(recordingDate)}
             </Typography>
           </Stack>
           
           <Stack direction='row' alignItems='center' justifyContent='space-between'>
-            <Typography variant='subtitle1'>{viewCount} views</Typography>
+            <Typography variant='subtitle1'>{viewCount || 0} views</Typography>
             <Typography variant='subtitle1'>
-              <Moment utc format='HH:mm:ss'>{videoDuration*1000}</Moment>
+              {formatDuration(duration)}
             </Typography>
           </Stack>
       </Stack>

@@ -107,7 +107,7 @@ export default function VideoEditPage() {
     };
 
     try {
-      const response = await axios.put(`${API_SERVER}/api/videos/update/${id}`, payload, {
+      await axios.put(`${API_SERVER}/api/videos/update/${id}`, payload, {
         headers: {
           'Content-Type': 'application/json',
           Accept: '*/*',
